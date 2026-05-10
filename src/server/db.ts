@@ -133,6 +133,7 @@ export function initDb() {
       signed_at DATETIME,
       locked INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id),
       FOREIGN KEY (patient_id) REFERENCES patients(id),
       FOREIGN KEY (professional_id) REFERENCES users(id)
@@ -157,6 +158,71 @@ export function initDb() {
       FOREIGN KEY (patient_id) REFERENCES patients(id)
     )
   `);
+
+  // --- WhatsApp ---
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS whatsapp_instances (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT,
+      status TEXT DEFAULT 'disconnected',
+      qrcode TEXT,
+      pairing_code TEXT,
+      webhook_url TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS whatsapp_chats (
+      jid TEXT NOT NULL,
+      instance_id TEXT NOT NULL,
+      name TEXT,
+      pushname TEXT,
+      phone TEXT,
+      is_group INTEGER DEFAULT 0,
+      profile_pic TEXT,
+      unread INTEGER DEFAULT 0,
+      last_message TEXT,
+      last_message_time DATETIME,
+      last_message_type TEXT,
+      archived INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (jid, instance_id),
+      FOREIGN KEY (instance_id) REFERENCES whatsapp_instances(id)
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS whatsapp_messages (
+      id TEXT PRIMARY KEY,
+      instance_id TEXT NOT NULL,
+      chat_jid TEXT NOT NULL,
+      from_me INTEGER DEFAULT 0,
+      content TEXT,
+      message_type TEXT DEFAULT 'text',
+      media_url TEXT,
+      media_name TEXT,
+      media_size INTEGER,
+      duration INTEGER,
+      is_forwarded INTEGER DEFAULT 0,
+      quoted_msg_id TEXT,
+      mentioned_jids TEXT,
+      ack INTEGER DEFAULT 0,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (instance_id) REFERENCES whatsapp_instances(id),
+      FOREIGN KEY (chat_jid, instance_id) REFERENCES whatsapp_chats(jid, instance_id)
+    )
+  `);
+
+  // Migrations for existing tables
+  try { db.exec('ALTER TABLE medical_records ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP'); } catch {}
+  try { db.exec('ALTER TABLE appointments ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP'); } catch {}
+  try { db.exec('ALTER TABLE financial_transactions ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP'); } catch {}
+  try { db.exec('ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP'); } catch {}
 
   console.log('Database initialized successfully.');
 }
